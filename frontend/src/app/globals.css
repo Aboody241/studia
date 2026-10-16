@@ -1,0 +1,156 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --background: #FFFFFF;
+    --foreground: #171717;
+
+    --card: #FFFFFF;
+    --card-foreground: #171717;
+
+    --popover: #FFFFFF;
+    --popover-foreground: #171717;
+
+    --primary: #171717;
+    --primary-foreground: #FFFFFF;
+    --primary-soft: #F5F5F5;
+
+    --secondary: #F5F5F5;
+    --secondary-foreground: #262626;
+
+    --muted: #F5F5F5;
+    --muted-foreground: #737373;
+
+    --accent: #F0F0F0;
+    --accent-foreground: #171717;
+
+    --border: #E5E5E5;
+    --input: #E5E5E5;
+    --ring: #525252;
+
+    --radius: 0.75rem;
+
+    --success: #171717;
+    --success-foreground: #FFFFFF;
+    --success-soft: #F5F5F5;
+
+    --warning: #525252;
+    --warning-foreground: #FFFFFF;
+    --warning-soft: #F5F5F5;
+
+    --destructive: #171717;
+    --destructive-foreground: #FFFFFF;
+    --destructive-soft: #F5F5F5;
+  }
+
+  .dark {
+    --background: #0A0A0A;
+    --foreground: #EDEDED;
+
+    --card: #141414;
+    --card-foreground: #EDEDED;
+
+    --popover: #141414;
+    --popover-foreground: #EDEDED;
+
+    --primary: #EDEDED;
+    --primary-foreground: #0A0A0A;
+    --primary-soft: #1F1F1F;
+
+    --secondary: #1F1F1F;
+    --secondary-foreground: #EDEDED;
+
+    --muted: #1F1F1F;
+    --muted-foreground: #8A8A8A;
+
+    --accent: #262626;
+    --accent-foreground: #EDEDED;
+
+    --border: #262626;
+    --input: #262626;
+    --ring: #A3A3A3;
+
+    --radius: 0.75rem;
+
+    --success: #EDEDED;
+    --success-foreground: #0A0A0A;
+    --success-soft: #1F1F1F;
+
+    --warning: #A3A3A3;
+    --warning-foreground: #0A0A0A;
+    --warning-soft: #1F1F1F;
+
+    --destructive: #EDEDED;
+    --destructive-foreground: #0A0A0A;
+    --destructive-soft: #1F1F1F;
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-soft: var(--primary-soft);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning-soft: var(--warning-soft);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-soft: var(--destructive-soft);
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+/* Arabic typography class */
+.font-arabic {
+  font-family: var(--font-arabic), -apple-system, sans-serif;
+}
+
+/* Clean accessible focus indicators */
+*:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* Minimal subtle scrollbars */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(160, 160, 160, 0.25);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(160, 160, 160, 0.45);
+}
