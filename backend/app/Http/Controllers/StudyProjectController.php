@@ -135,11 +135,12 @@ class StudyProjectController extends Controller
 
         $daysNeeded = $dailyCapacityMinutes > 0 ? ceil($remainingMinutes / $dailyCapacityMinutes) : 0;
 
-        $deadlineFeasibility = null;
+        $suggestedDeadline = null;
         if ($studyProject->target_deadline) {
             $daysAvailable = max(1, Carbon::today()->diffInDays($studyProject->target_deadline, false) + 1);
             $requiredDailyMinutes = ceil($remainingMinutes / $daysAvailable);
             $isRealistic = $requiredDailyMinutes <= $dailyCapacityMinutes;
+            $suggestedDeadline = ! $isRealistic ? Carbon::today()->addDays($daysNeeded)->toDateString() : null;
 
             $deadlineFeasibility = [
                 'target_deadline' => $studyProject->target_deadline->toDateString(),
@@ -147,7 +148,52 @@ class StudyProjectController extends Controller
                 'required_daily_minutes' => $requiredDailyMinutes,
                 'is_realistic' => $isRealistic,
                 'warning' => ! $isRealistic ? "You need {$requiredDailyMinutes} min/day to hit this deadline, but your daily budget is {$dailyCapacityMinutes} min." : null,
+                'suggested_deadline' => $suggestedDeadline,
+                'suggested_daily_minutes' => $requiredDailyMinutes,
             ];
+        }
+
+        // Deterministic day-by-day scheduling
+        $scheduledDays = [];
+        $currentDate = Carbon::today();
+        $unitQueue = $uncompletedUnits->values()->all();
+        $queueIndex = 0;
+        $totalQueueCount = count($unitQueue);
+
+        $maxDays = max(7, $daysNeeded + 2);
+        for ($day = 0; $day < $maxDays && $queueIndex < $totalQueueCount; $day++) {
+            $date = $currentDate->copy()->addDays($day);
+            $dayUnits = [];
+            $accumulatedMinutes = 0;
+
+            while ($queueIndex < $totalQueueCount) {
+                $unit = $unitQueue[$queueIndex];
+                $unitMinutes = $unit->estimated_minutes ?: 25;
+
+                // Stop if adding this unit exceeds capacity, unless nothing added yet for today
+                if ($accumulatedMinutes + $unitMinutes > $dailyCapacityMinutes && count($dayUnits) > 0) {
+                    break;
+                }
+
+                $dayUnits[] = $unit;
+                $accumulatedMinutes += $unitMinutes;
+                $queueIndex++;
+            }
+
+            if (! empty($dayUnits)) {
+                $scheduledDays[] = [
+                    'date' => $date->toDateString(),
+                    'day_name' => $day === 0 ? 'Today' : ($day === 1 ? 'Tomorrow' : $date->format('D')),
+                    'day_label' => $day === 0 ? 'Today, ' . $date->format('M j') : ($day === 1 ? 'Tomorrow, ' . $date->format('M j') : $date->format('D, M j')),
+                    'day_number' => $day,
+                    'is_today' => $day === 0,
+                    'total_minutes' => $accumulatedMinutes,
+                    'pomodoros_count' => ceil($accumulatedMinutes / $sessionLengthMinutes),
+                    'units_count' => count($dayUnits),
+                    'units' => $dayUnits,
+                    'is_over_capacity' => $accumulatedMinutes > $dailyCapacityMinutes,
+                ];
+            }
         }
 
         return response()->json([
@@ -162,6 +208,7 @@ class StudyProjectController extends Controller
             'daily_pomodoro_capacity' => $dailyPomodoros,
             'estimated_days_needed' => $daysNeeded,
             'deadline_feasibility' => $deadlineFeasibility,
+            'scheduled_days' => $scheduledDays,
             'next_recommended_unit' => $uncompletedUnits->first(),
         ]);
     }

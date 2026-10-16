@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
-import { FocusSession, Material, PlanAnalysis, StudyProject, StudyUnit } from '@/lib/types';
+import { FocusSession, Material, PlanAnalysis, ScheduledDay, StudyProject, StudyUnit } from '@/lib/types';
 import { AppSidebar, NavTab } from '@/components/AppSidebar';
 import { DashboardView } from '@/components/views/DashboardView';
 import { CoursesView } from '@/components/views/CoursesView';
@@ -178,30 +178,108 @@ export default function Home() {
   const [leftPanelOpen, setLeftPanelOpen] = useState(true);
   const [rightPanelOpen, setRightPanelOpen] = useState(true);
 
-  const calculateLocalPlan = React.useCallback((currentUnits: StudyUnit[], project?: StudyProject | null) => {
-    const p = project || currentProject;
-    const uncompleted = currentUnits.filter((u) => !u.is_completed);
-    const remMins = uncompleted.reduce((acc, u) => acc + u.estimated_minutes, 0);
-    setPlanAnalysis({
-      project_id: p?.id || 1,
-      project_name: p?.name || 'Operating Systems',
-      total_units: currentUnits.length,
-      remaining_units: uncompleted.length,
-      total_estimated_minutes: currentUnits.reduce((acc, u) => acc + u.estimated_minutes, 0),
-      remaining_minutes: remMins,
-      remaining_pomodoros: Math.ceil(remMins / 25),
-      daily_available_minutes: p?.daily_available_minutes || 90,
-      daily_pomodoro_capacity: Math.floor((p?.daily_available_minutes || 90) / 30),
-      estimated_days_needed: Math.ceil(remMins / (p?.daily_available_minutes || 90)),
-      deadline_feasibility: {
-        target_deadline: p?.target_deadline || '2026-10-29',
-        days_remaining: 14,
-        required_daily_minutes: Math.ceil(remMins / 14),
-        is_realistic: true,
-      },
-      next_recommended_unit: uncompleted[0] || null,
-    });
-  }, [currentProject]);
+  const calculateLocalPlan = React.useCallback(
+    (currentUnits: StudyUnit[], project?: StudyProject | null) => {
+      const p = project || currentProject;
+      const uncompleted = currentUnits.filter((u) => !u.is_completed);
+      const remMins = uncompleted.reduce((acc, u) => acc + u.estimated_minutes, 0);
+      const dailyCap = p?.daily_available_minutes || 90;
+      const daysNeeded = dailyCap > 0 ? Math.ceil(remMins / dailyCap) : 0;
+
+      // Deadline feasibility calculation
+      const deadlineStr = p?.target_deadline || '2026-10-30';
+      const deadlineDate = new Date(deadlineStr);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      deadlineDate.setHours(0, 0, 0, 0);
+      const diffTime = deadlineDate.getTime() - today.getTime();
+      const daysRemaining = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+      const requiredDailyMinutes = Math.ceil(remMins / daysRemaining);
+      const isRealistic = requiredDailyMinutes <= dailyCap;
+
+      const suggestedDeadlineDate = new Date(today);
+      suggestedDeadlineDate.setDate(today.getDate() + daysNeeded);
+      const suggestedDeadline = !isRealistic
+        ? suggestedDeadlineDate.toISOString().split('T')[0]
+        : null;
+
+      // Deterministic Day-by-Day Schedule
+      const scheduledDays: ScheduledDay[] = [];
+      const queue = [...uncompleted];
+      let queueIdx = 0;
+      const maxDays = Math.max(7, daysNeeded + 2);
+
+      for (let day = 0; day < maxDays && queueIdx < queue.length; day++) {
+        const dDate = new Date(today);
+        dDate.setDate(today.getDate() + day);
+        const dateIso = dDate.toISOString().split('T')[0];
+        const dayUnits: StudyUnit[] = [];
+        let accMins = 0;
+
+        while (queueIdx < queue.length) {
+          const u = queue[queueIdx];
+          const uMins = u.estimated_minutes || 25;
+          if (accMins + uMins > dailyCap && dayUnits.length > 0) {
+            break;
+          }
+          dayUnits.push(u);
+          accMins += uMins;
+          queueIdx++;
+        }
+
+        if (dayUnits.length > 0) {
+          const dayName =
+            day === 0 ? 'Today' : day === 1 ? 'Tomorrow' : dDate.toLocaleDateString('en-US', { weekday: 'short' });
+          const dayLabel =
+            day === 0
+              ? `Today, ${dDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+              : day === 1
+              ? `Tomorrow, ${dDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+              : dDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+
+          scheduledDays.push({
+            date: dateIso,
+            day_name: dayName,
+            day_label: dayLabel,
+            day_number: day,
+            is_today: day === 0,
+            total_minutes: accMins,
+            pomodoros_count: Math.ceil(accMins / 25),
+            units_count: dayUnits.length,
+            units: dayUnits,
+            is_over_capacity: accMins > dailyCap,
+          });
+        }
+      }
+
+      setPlanAnalysis({
+        project_id: p?.id || 1,
+        project_name: p?.name || 'Operating Systems',
+        total_units: currentUnits.length,
+        remaining_units: uncompleted.length,
+        total_estimated_minutes: currentUnits.reduce((acc, u) => acc + u.estimated_minutes, 0),
+        remaining_minutes: remMins,
+        remaining_pomodoros: Math.ceil(remMins / 25),
+        daily_available_minutes: dailyCap,
+        daily_pomodoro_capacity: Math.floor(dailyCap / 30),
+        estimated_days_needed: daysNeeded,
+        deadline_feasibility: {
+          target_deadline: deadlineStr,
+          days_remaining: daysRemaining,
+          required_daily_minutes: requiredDailyMinutes,
+          is_realistic: isRealistic,
+          warning: !isRealistic
+            ? `You need ${requiredDailyMinutes} min/day to hit this deadline, but your daily budget is ${dailyCap} min.`
+            : null,
+          suggested_deadline: suggestedDeadline,
+          suggested_daily_minutes: requiredDailyMinutes,
+        },
+        scheduled_days: scheduledDays,
+        next_recommended_unit: uncompleted[0] || null,
+      });
+    },
+    [currentProject]
+  );
 
   const loadProjectDetails = React.useCallback(async (projectId: number) => {
     try {
@@ -347,6 +425,22 @@ export default function Home() {
       }
     } catch (err) {
       console.warn('Reordered units locally:', err);
+    }
+  };
+
+  const handleUpdateProject = async (projectId: number, data: Partial<StudyProject>) => {
+    const updated = projects.map((p) => (p.id === projectId ? { ...p, ...data } : p));
+    setProjects(updated);
+    if (currentProject?.id === projectId) {
+      const updatedCurr = { ...currentProject, ...data };
+      setCurrentProject(updatedCurr);
+      calculateLocalPlan(units, updatedCurr);
+    }
+
+    try {
+      await api.updateProject(projectId, data);
+    } catch (err) {
+      console.warn('Updated project locally:', err);
     }
   };
 
@@ -625,6 +719,7 @@ export default function Home() {
               if (u) setActiveUnit(u);
               setCurrentTab('workspace');
             }}
+            onUpdateProject={handleUpdateProject}
           />
         )}
 

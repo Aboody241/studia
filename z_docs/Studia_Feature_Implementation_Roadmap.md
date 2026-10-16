@@ -167,25 +167,25 @@ Prerequisites: Phase 3; available time and deadline settings exist
 
 ## Implementation checklist
 
-- [ ] Define a study plan, tasks, date/time allocation, duration estimates and statuses.
+- [x] Define a study plan, tasks, date/time allocation, duration estimates and statuses.
 
-- [ ] Implement deterministic scheduling using remaining units, daily capacity, deadline and breaks.
+- [x] Implement deterministic scheduling using remaining units, daily capacity, deadline and breaks.
 
-- [ ] Expose a preview before accepting plan creation; signal infeasible deadlines explicitly.
+- [x] Expose a preview before accepting plan creation; signal infeasible deadlines explicitly.
 
-- [ ] Build daily/weekly views using saved tasks, with edit, reorder and reschedule actions.
+- [x] Build daily/weekly views using saved tasks, with edit, reorder and reschedule actions.
 
-- [ ] Handle completed units, dependencies where relevant, and time-zone/date boundaries.
+- [x] Handle completed units, dependencies where relevant, and time-zone/date boundaries.
 
-- [ ] Ensure re-running planning does not overwrite user edits without confirmation.
+- [x] Ensure re-running planning does not overwrite user edits without confirmation.
 
 ## Acceptance / test gate
 
-- [ ] Test a simple plan by hand: total minutes, number of focus intervals, free days and deadline.
+- [x] Test a simple plan by hand: total minutes, number of focus intervals, free days and deadline.
 
-- [ ] Impossible workloads trigger a clear explanation, not a false success.
+- [x] Impossible workloads trigger a clear explanation, not a false success.
 
-- [ ] Plan survives refresh and reflects manual edits.
+- [x] Plan survives refresh and reflects manual edits.
 
 # Phase 5 — Focus Timer & Study Strategies
 

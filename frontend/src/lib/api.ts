@@ -72,6 +72,13 @@ class ApiClient {
     });
   }
 
+  async updateProject(id: number, data: Partial<StudyProject>): Promise<StudyProject> {
+    return this.request<StudyProject>(`/projects/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
   async getProjectPlan(id: number): Promise<PlanAnalysis> {
     return this.request<PlanAnalysis>(`/projects/${id}/plan`);
   }

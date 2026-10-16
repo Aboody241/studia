@@ -69,6 +69,19 @@ export interface FocusSession {
   material_unit?: StudyUnit;
 }
 
+export interface ScheduledDay {
+  date: string;
+  day_name: string;
+  day_label: string;
+  day_number: number;
+  is_today: boolean;
+  total_minutes: number;
+  pomodoros_count: number;
+  units_count: number;
+  units: StudyUnit[];
+  is_over_capacity: boolean;
+}
+
 export interface PlanAnalysis {
   project_id: number;
   project_name: string;
@@ -86,6 +99,9 @@ export interface PlanAnalysis {
     required_daily_minutes: number;
     is_realistic: boolean;
     warning?: string | null;
+    suggested_deadline?: string | null;
+    suggested_daily_minutes?: number | null;
   } | null;
+  scheduled_days?: ScheduledDay[];
   next_recommended_unit?: StudyUnit | null;
 }
