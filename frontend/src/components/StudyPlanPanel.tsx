@@ -12,6 +12,7 @@ interface StudyPlanPanelProps {
   activeUnitId?: number | null;
   onToggleComplete: (unitId: number) => void;
   onSelectUnitForTimer: (unit: StudyUnit) => void;
+  onSelectUnit?: (unit: StudyUnit) => void;
   onAddUnit: (title: string, estimatedMinutes: number) => void;
   isOpen?: boolean;
 }
@@ -22,6 +23,7 @@ export const StudyPlanPanel: React.FC<StudyPlanPanelProps> = ({
   activeUnitId,
   onToggleComplete,
   onSelectUnitForTimer,
+  onSelectUnit,
   onAddUnit,
   isOpen = true,
 }) => {
@@ -114,9 +116,13 @@ export const StudyPlanPanel: React.FC<StudyPlanPanelProps> = ({
                   )}
                 </button>
 
-                <div className="flex-1 min-w-0">
+                <div
+                  className="flex-1 min-w-0 cursor-pointer"
+                  onClick={() => onSelectUnit?.(unit)}
+                  title="Click to jump to this unit in the reader"
+                >
                   <p
-                    className={`text-xs font-medium leading-snug truncate ${
+                    className={`text-xs font-medium leading-snug truncate hover:underline ${
                       unit.is_completed ? 'line-through text-muted-foreground' : 'text-foreground'
                     }`}
                   >

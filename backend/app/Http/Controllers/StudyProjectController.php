@@ -74,6 +74,9 @@ class StudyProjectController extends Controller
         $this->authorizeAccess($request, $studyProject);
 
         $studyProject->load([
+            'units' => function ($query) {
+                $query->orderBy('order_index', 'asc');
+            },
             'materials.units' => function ($query) {
                 $query->orderBy('order_index', 'asc');
             },

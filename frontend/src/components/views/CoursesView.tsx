@@ -3,20 +3,25 @@
 import React, { useRef, useState } from 'react';
 import {
   AlertCircle,
+  ArrowDown,
   ArrowLeft,
+  ArrowUp,
   BookOpen,
   Calendar,
+  Check,
   CheckCircle2,
   Clock,
   FileText,
   Filter,
   GraduationCap,
   Loader2,
+  Pencil,
   Play,
   Plus,
   Search,
   Trash2,
   Upload,
+  X,
 } from 'lucide-react';
 import { Material, PlanAnalysis, StudyProject, StudyUnit } from '@/lib/types';
 import { Button } from '../ui/button';
@@ -36,7 +41,17 @@ interface CoursesViewProps {
   onOpenWorkspace: (material?: Material, unit?: StudyUnit) => void;
   onStartFocus: (unit?: StudyUnit) => void;
   onToggleUnit: (unitId: number) => void;
-  onAddUnit: (title: string, estimatedMinutes: number) => void;
+  onAddUnit: (
+    title: string,
+    estimatedMinutes: number,
+    pageStart?: number,
+    pageEnd?: number,
+    difficulty?: 'easy' | 'medium' | 'hard',
+    materialId?: number
+  ) => void;
+  onUpdateUnit?: (unitId: number, data: Partial<StudyUnit>) => void;
+  onDeleteUnit?: (unitId: number) => void;
+  onReorderUnits?: (reorderedUnits: StudyUnit[]) => void;
   onUploadMaterial?: (file: File) => Promise<void>;
   onDeleteMaterial?: (materialId: number) => Promise<void>;
 }
@@ -55,14 +70,34 @@ export const CoursesView: React.FC<CoursesViewProps> = ({
   onStartFocus,
   onToggleUnit,
   onAddUnit,
+  onUpdateUnit,
+  onDeleteUnit,
+  onReorderUnits,
   onUploadMaterial,
   onDeleteMaterial,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'units' | 'materials' | 'plan'>('units');
+  const [unitFilter, setUnitFilter] = useState<'all' | 'pending' | 'completed'>('all');
   const [isAddingUnit, setIsAddingUnit] = useState(false);
   const [newUnitTitle, setNewUnitTitle] = useState('');
   const [newUnitMinutes, setNewUnitMinutes] = useState(30);
+  const [newUnitPageStart, setNewUnitPageStart] = useState<string>('');
+  const [newUnitPageEnd, setNewUnitPageEnd] = useState<string>('');
+  const [newUnitDifficulty, setNewUnitDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
+  const [newUnitMaterialId, setNewUnitMaterialId] = useState<string>('');
+
+  // Unit Editing state
+  const [editingUnitId, setEditingUnitId] = useState<number | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editMinutes, setEditMinutes] = useState(30);
+  const [editPageStart, setEditPageStart] = useState<string>('');
+  const [editPageEnd, setEditPageEnd] = useState<string>('');
+  const [editDifficulty, setEditDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
+  const [editMaterialId, setEditMaterialId] = useState<string>('');
+
+  // Unit Delete Confirmation state
+  const [deletingUnitId, setDeletingUnitId] = useState<number | null>(null);
 
   // Material upload state
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -110,12 +145,76 @@ export const CoursesView: React.FC<CoursesViewProps> = ({
   const completedUnits = units.filter((u) => u.is_completed);
   const uncompletedUnits = units.filter((u) => !u.is_completed);
 
+  const filteredUnits = units.filter((u) => {
+    if (unitFilter === 'pending') return !u.is_completed;
+    if (unitFilter === 'completed') return u.is_completed;
+    return true;
+  });
+
   const handleAddUnitSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newUnitTitle.trim()) return;
-    onAddUnit(newUnitTitle.trim(), newUnitMinutes);
+    onAddUnit(
+      newUnitTitle.trim(),
+      newUnitMinutes,
+      newUnitPageStart ? parseInt(newUnitPageStart, 10) : undefined,
+      newUnitPageEnd ? parseInt(newUnitPageEnd, 10) : undefined,
+      newUnitDifficulty,
+      newUnitMaterialId ? parseInt(newUnitMaterialId, 10) : undefined
+    );
     setNewUnitTitle('');
+    setNewUnitMinutes(30);
+    setNewUnitPageStart('');
+    setNewUnitPageEnd('');
     setIsAddingUnit(false);
+  };
+
+  const startEditing = (unit: StudyUnit) => {
+    setEditingUnitId(unit.id);
+    setEditTitle(unit.title);
+    setEditMinutes(unit.estimated_minutes);
+    setEditPageStart(unit.page_start ? String(unit.page_start) : '');
+    setEditPageEnd(unit.page_end ? String(unit.page_end) : '');
+    setEditDifficulty(unit.difficulty || 'medium');
+    setEditMaterialId(unit.material_id ? String(unit.material_id) : '');
+  };
+
+  const handleSaveEdit = (unitId: number) => {
+    if (!editTitle.trim()) return;
+    if (onUpdateUnit) {
+      onUpdateUnit(unitId, {
+        title: editTitle.trim(),
+        estimated_minutes: editMinutes,
+        page_start: editPageStart ? parseInt(editPageStart, 10) : undefined,
+        page_end: editPageEnd ? parseInt(editPageEnd, 10) : undefined,
+        difficulty: editDifficulty,
+        material_id: editMaterialId ? parseInt(editMaterialId, 10) : undefined,
+      });
+    }
+    setEditingUnitId(null);
+  };
+
+  const handleMoveUnit = (unitId: number, direction: 'up' | 'down') => {
+    const index = units.findIndex((u) => u.id === unitId);
+    if (index < 0) return;
+    if (direction === 'up' && index === 0) return;
+    if (direction === 'down' && index === units.length - 1) return;
+
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    const reordered = [...units];
+    const [moved] = reordered.splice(index, 1);
+    reordered.splice(targetIndex, 0, moved);
+
+    if (onReorderUnits) {
+      onReorderUnits(reordered);
+    }
+  };
+
+  const handleDelete = (unitId: number) => {
+    if (onDeleteUnit) {
+      onDeleteUnit(unitId);
+    }
+    setDeletingUnitId(null);
   };
 
   // -------------------------------------------------------------
@@ -236,37 +335,87 @@ export const CoursesView: React.FC<CoursesViewProps> = ({
         {/* TAB 1: Study Units */}
         {activeTab === 'units' && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
+            {/* Header, Filters & Add Unit Button */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-border/60">
               <div>
                 <h3 className="text-sm font-semibold tracking-tight text-foreground">
                   Curriculum Breakdown
                 </h3>
-                <p className="text-xs text-muted-foreground">
-                  Structured study units for this course. Click checkbox to toggle progress.
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Organize and edit study units, assign pages and time estimates, and track progress.
                 </p>
               </div>
 
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsAddingUnit(true)}
-              >
-                <Plus className="w-3.5 h-3.5 mr-1" />
-                Add Unit
-              </Button>
+              <div className="flex items-center gap-2">
+                {/* Filter Pills */}
+                <div className="flex items-center p-0.5 rounded-lg border border-border bg-neutral-100/80 dark:bg-neutral-900/80 text-[11px]">
+                  <button
+                    onClick={() => setUnitFilter('all')}
+                    className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
+                      unitFilter === 'all'
+                        ? 'bg-background text-foreground shadow-xs'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    All ({units.length})
+                  </button>
+                  <button
+                    onClick={() => setUnitFilter('pending')}
+                    className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
+                      unitFilter === 'pending'
+                        ? 'bg-background text-foreground shadow-xs'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    Pending ({uncompletedUnits.length})
+                  </button>
+                  <button
+                    onClick={() => setUnitFilter('completed')}
+                    className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
+                      unitFilter === 'completed'
+                        ? 'bg-background text-foreground shadow-xs'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    Done ({completedUnits.length})
+                  </button>
+                </div>
+
+                <Button
+                  size="sm"
+                  onClick={() => setIsAddingUnit(!isAddingUnit)}
+                  className="text-xs h-8"
+                >
+                  <Plus className="w-3.5 h-3.5 mr-1" />
+                  Add Unit
+                </Button>
+              </div>
             </div>
 
             {/* Inline Add Unit Form */}
             {isAddingUnit && (
               <form
                 onSubmit={handleAddUnitSubmit}
-                className="p-4 rounded-xl border border-border bg-neutral-50 dark:bg-neutral-900/60 space-y-3"
+                className="p-5 rounded-xl border border-border bg-neutral-50/80 dark:bg-neutral-900/60 space-y-4 animate-in fade-in duration-150"
               >
-                <h4 className="text-xs font-semibold text-foreground uppercase tracking-wider">
-                  Create New Study Unit
-                </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="sm:col-span-2">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-semibold text-foreground uppercase tracking-wider">
+                    Create New Study Unit
+                  </h4>
+                  <button
+                    type="button"
+                    onClick={() => setIsAddingUnit(false)}
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+                  <div className="md:col-span-6">
+                    <label className="text-[11px] font-medium text-muted-foreground block mb-1">
+                      Unit Title
+                    </label>
                     <input
                       type="text"
                       placeholder="e.g. Chapter 4: Memory Management"
@@ -276,19 +425,93 @@ export const CoursesView: React.FC<CoursesViewProps> = ({
                       autoFocus
                     />
                   </div>
-                  <div className="flex items-center gap-2">
+
+                  <div className="md:col-span-2">
+                    <label className="text-[11px] font-medium text-muted-foreground block mb-1">
+                      Duration (min)
+                    </label>
                     <input
                       type="number"
                       min="5"
-                      max="180"
+                      max="300"
                       value={newUnitMinutes}
                       onChange={(e) => setNewUnitMinutes(Number(e.target.value))}
-                      className="w-20 bg-background border border-border rounded-md px-3 py-1.5 text-xs text-foreground focus:outline-none"
+                      className="w-full bg-background border border-border rounded-md px-3 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                     />
-                    <span className="text-xs text-muted-foreground">minutes</span>
                   </div>
+
+                  <div className="md:col-span-2">
+                    <label className="text-[11px] font-medium text-muted-foreground block mb-1">
+                      Start Page
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      placeholder="e.g. 45"
+                      value={newUnitPageStart}
+                      onChange={(e) => setNewUnitPageStart(e.target.value)}
+                      className="w-full bg-background border border-border rounded-md px-3 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                    />
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="text-[11px] font-medium text-muted-foreground block mb-1">
+                      End Page
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      placeholder="e.g. 60"
+                      value={newUnitPageEnd}
+                      onChange={(e) => setNewUnitPageEnd(e.target.value)}
+                      className="w-full bg-background border border-border rounded-md px-3 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                    />
+                  </div>
+
+                  <div className="md:col-span-6">
+                    <label className="text-[11px] font-medium text-muted-foreground block mb-1">
+                      Difficulty Level
+                    </label>
+                    <div className="flex gap-2">
+                      {(['easy', 'medium', 'hard'] as const).map((level) => (
+                        <button
+                          key={level}
+                          type="button"
+                          onClick={() => setNewUnitDifficulty(level)}
+                          className={`flex-1 text-xs py-1.5 rounded-md border capitalize font-medium transition-all ${
+                            newUnitDifficulty === level
+                              ? 'bg-foreground text-background border-foreground'
+                              : 'bg-background text-muted-foreground border-border hover:text-foreground'
+                          }`}
+                        >
+                          {level}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {materials.length > 0 && (
+                    <div className="md:col-span-6">
+                      <label className="text-[11px] font-medium text-muted-foreground block mb-1">
+                        Attached Material (Optional)
+                      </label>
+                      <select
+                        value={newUnitMaterialId}
+                        onChange={(e) => setNewUnitMaterialId(e.target.value)}
+                        className="w-full bg-background border border-border rounded-md px-3 py-1.5 text-xs text-foreground focus:outline-none"
+                      >
+                        <option value="">Default ({materials[0]?.title || 'Auto'})</option>
+                        {materials.map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.title}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                 </div>
-                <div className="flex justify-end gap-2 pt-1">
+
+                <div className="flex justify-end gap-2 pt-2 border-t border-border/60">
                   <Button
                     type="button"
                     variant="ghost"
@@ -306,81 +529,274 @@ export const CoursesView: React.FC<CoursesViewProps> = ({
 
             {/* Units List */}
             <div className="border border-border rounded-xl divide-y divide-border/80 bg-card overflow-hidden">
-              {units.length === 0 ? (
-                <div className="p-10 text-center text-xs text-muted-foreground">
-                  No study units created yet. Add your first unit above.
+              {filteredUnits.length === 0 ? (
+                <div className="p-12 text-center text-xs text-muted-foreground space-y-2">
+                  <p>
+                    {units.length === 0
+                      ? 'No study units created yet. Add your first unit above.'
+                      : `No units matching the '${unitFilter}' filter.`}
+                  </p>
                 </div>
               ) : (
-                units.map((unit) => (
-                  <div
-                    key={unit.id}
-                    className={`p-4 flex items-center justify-between transition-colors ${
-                      unit.is_completed ? 'bg-neutral-50/50 dark:bg-neutral-900/20' : 'hover:bg-neutral-50 dark:hover:bg-neutral-900/40'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3.5 min-w-0 pr-4">
-                      <button
-                        onClick={() => onToggleUnit(unit.id)}
-                        className="text-muted-foreground hover:text-foreground transition-colors shrink-0"
-                        title={unit.is_completed ? 'Mark incomplete' : 'Mark complete'}
-                      >
-                        {unit.is_completed ? (
-                          <CheckCircle2 className="w-5 h-5 text-foreground fill-foreground/10" />
-                        ) : (
-                          <div className="w-5 h-5 rounded-full border border-neutral-300 dark:border-neutral-600 hover:border-foreground transition-colors" />
-                        )}
-                      </button>
+                filteredUnits.map((unit) => {
+                  const isEditing = editingUnitId === unit.id;
+                  const isDeleting = deletingUnitId === unit.id;
+                  const unitMaterial = materials.find((m) => m.id === unit.material_id);
 
-                      <div className="truncate">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-mono text-muted-foreground">
-                            #{unit.order_index}
+                  if (isEditing) {
+                    return (
+                      <div
+                        key={unit.id}
+                        className="p-4 bg-neutral-50 dark:bg-neutral-900/60 space-y-3"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-semibold text-foreground">
+                            Editing Unit #{unit.order_index}
                           </span>
-                          <p
-                            className={`text-sm font-medium truncate ${
-                              unit.is_completed ? 'line-through text-muted-foreground' : 'text-foreground'
-                            }`}
+                          <button
+                            onClick={() => setEditingUnitId(null)}
+                            className="text-muted-foreground hover:text-foreground"
                           >
-                            {unit.title}
-                          </p>
+                            <X className="w-3.5 h-3.5" />
+                          </button>
                         </div>
-                        <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
-                          <span className="flex items-center gap-1 font-mono">
-                            <Clock className="w-3 h-3" /> {unit.estimated_minutes} min
-                          </span>
-                          {unit.page_start && (
-                            <span className="font-mono">Pages {unit.page_start}–{unit.page_end}</span>
-                          )}
-                          <span className="capitalize text-[11px] px-1.5 py-0.2 rounded bg-neutral-100 dark:bg-neutral-800 border border-border">
-                            {unit.difficulty}
-                          </span>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
+                          <div className="sm:col-span-6">
+                            <label className="text-[10px] text-muted-foreground uppercase font-medium">Title</label>
+                            <input
+                              type="text"
+                              value={editTitle}
+                              onChange={(e) => setEditTitle(e.target.value)}
+                              className="w-full bg-background border border-border rounded px-2.5 py-1 text-xs text-foreground focus:outline-none"
+                            />
+                          </div>
+                          <div className="sm:col-span-2">
+                            <label className="text-[10px] text-muted-foreground uppercase font-medium">Minutes</label>
+                            <input
+                              type="number"
+                              min="5"
+                              max="300"
+                              value={editMinutes}
+                              onChange={(e) => setEditMinutes(Number(e.target.value))}
+                              className="w-full bg-background border border-border rounded px-2.5 py-1 text-xs text-foreground focus:outline-none"
+                            />
+                          </div>
+                          <div className="sm:col-span-2">
+                            <label className="text-[10px] text-muted-foreground uppercase font-medium">Start Page</label>
+                            <input
+                              type="number"
+                              min="1"
+                              value={editPageStart}
+                              onChange={(e) => setEditPageStart(e.target.value)}
+                              className="w-full bg-background border border-border rounded px-2.5 py-1 text-xs text-foreground focus:outline-none"
+                            />
+                          </div>
+                          <div className="sm:col-span-2">
+                            <label className="text-[10px] text-muted-foreground uppercase font-medium">End Page</label>
+                            <input
+                              type="number"
+                              min="1"
+                              value={editPageEnd}
+                              onChange={(e) => setEditPageEnd(e.target.value)}
+                              className="w-full bg-background border border-border rounded px-2.5 py-1 text-xs text-foreground focus:outline-none"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[11px] text-muted-foreground">Difficulty:</span>
+                            {(['easy', 'medium', 'hard'] as const).map((diff) => (
+                              <button
+                                key={diff}
+                                type="button"
+                                onClick={() => setEditDifficulty(diff)}
+                                className={`text-[10px] px-2 py-0.5 rounded capitalize font-medium ${
+                                  editDifficulty === diff
+                                    ? 'bg-foreground text-background font-semibold'
+                                    : 'bg-background text-muted-foreground border border-border'
+                                }`}
+                              >
+                                {diff}
+                              </button>
+                            ))}
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setEditingUnitId(null)}
+                              className="h-7 text-xs px-2.5"
+                            >
+                              Cancel
+                            </Button>
+                            <Button
+                              size="sm"
+                              onClick={() => handleSaveEdit(unit.id)}
+                              className="h-7 text-xs px-3"
+                            >
+                              <Check className="w-3 h-3 mr-1" />
+                              Save Changes
+                            </Button>
+                          </div>
                         </div>
                       </div>
-                    </div>
+                    );
+                  }
 
-                    <div className="flex items-center gap-2 shrink-0">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => onOpenWorkspace(undefined, unit)}
-                        className="text-xs h-8 px-2.5"
-                      >
-                        <BookOpen className="w-3.5 h-3.5 mr-1" />
-                        Study
-                      </Button>
-                      {!unit.is_completed && (
-                        <Button
-                          size="sm"
-                          onClick={() => onStartFocus(unit)}
-                          className="text-xs h-8 px-3"
+                  return (
+                    <div
+                      key={unit.id}
+                      className={`p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors ${
+                        unit.is_completed
+                          ? 'bg-neutral-50/50 dark:bg-neutral-900/20'
+                          : 'hover:bg-neutral-50 dark:hover:bg-neutral-900/40'
+                      }`}
+                    >
+                      <div className="flex items-start sm:items-center gap-3 min-w-0 pr-2">
+                        {/* Completion Checkbox */}
+                        <button
+                          onClick={() => onToggleUnit(unit.id)}
+                          className="mt-0.5 sm:mt-0 text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                          title={unit.is_completed ? 'Mark incomplete' : 'Mark complete'}
                         >
-                          <Play className="w-3 h-3 fill-current mr-1" />
-                          Focus
+                          {unit.is_completed ? (
+                            <CheckCircle2 className="w-5 h-5 text-foreground fill-foreground/10" />
+                          ) : (
+                            <div className="w-5 h-5 rounded-full border border-neutral-300 dark:border-neutral-600 hover:border-foreground transition-colors" />
+                          )}
+                        </button>
+
+                        <div className="truncate">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-mono text-muted-foreground">
+                              #{unit.order_index}
+                            </span>
+                            <p
+                              className={`text-sm font-medium truncate ${
+                                unit.is_completed ? 'line-through text-muted-foreground' : 'text-foreground'
+                              }`}
+                            >
+                              {unit.title}
+                            </p>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-2.5 text-xs text-muted-foreground mt-1">
+                            <span className="flex items-center gap-1 font-mono">
+                              <Clock className="w-3 h-3" /> {unit.estimated_minutes} min
+                            </span>
+                            {unit.page_start && (
+                              <span className="font-mono">
+                                pp. {unit.page_start}–{unit.page_end || unit.page_start}
+                              </span>
+                            )}
+                            <span className="capitalize text-[10px] px-1.5 py-0.2 rounded bg-neutral-100 dark:bg-neutral-800 border border-border">
+                              {unit.difficulty}
+                            </span>
+                            {unitMaterial && (
+                              <span className="text-[10px] text-muted-foreground/80 truncate max-w-[150px]">
+                                · {unitMaterial.title}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Right Action Buttons */}
+                      <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-center">
+                        {/* Reorder Buttons */}
+                        {onReorderUnits && (
+                          <div className="flex items-center border border-border rounded-md overflow-hidden bg-background">
+                            <button
+                              onClick={() => handleMoveUnit(unit.id, 'up')}
+                              disabled={units.indexOf(unit) === 0}
+                              title="Move unit up"
+                              className="p-1.5 hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-30 transition-colors text-muted-foreground hover:text-foreground"
+                            >
+                              <ArrowUp className="w-3 h-3" />
+                            </button>
+                            <button
+                              onClick={() => handleMoveUnit(unit.id, 'down')}
+                              disabled={units.indexOf(unit) === units.length - 1}
+                              title="Move unit down"
+                              className="p-1.5 hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-30 border-l border-border transition-colors text-muted-foreground hover:text-foreground"
+                            >
+                              <ArrowDown className="w-3 h-3" />
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Edit Button */}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => startEditing(unit)}
+                          className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                          title="Edit unit"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
                         </Button>
-                      )}
+
+                        {/* Delete Button / Inline Confirmation */}
+                        {isDeleting ? (
+                          <div className="flex items-center gap-1 bg-neutral-100 dark:bg-neutral-800 p-1 rounded-md text-xs">
+                            <span className="text-[10px] text-muted-foreground px-1">Delete?</span>
+                            <button
+                              onClick={() => handleDelete(unit.id)}
+                              className="px-1.5 py-0.5 rounded bg-black text-white dark:bg-white dark:text-black font-semibold text-[10px]"
+                            >
+                              Yes
+                            </button>
+                            <button
+                              onClick={() => setDeletingUnitId(null)}
+                              className="px-1.5 py-0.5 rounded text-muted-foreground hover:text-foreground text-[10px]"
+                            >
+                              No
+                            </button>
+                          </div>
+                        ) : (
+                          onDeleteUnit && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setDeletingUnitId(unit.id)}
+                              className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                              title="Delete unit"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          )
+                        )}
+
+                        {/* Open in PDF Workspace */}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => onOpenWorkspace(unitMaterial, unit)}
+                          className="text-xs h-8 px-2.5"
+                          title={unit.page_start ? `Read in PDF at page ${unit.page_start}` : 'Open in Study Workspace'}
+                        >
+                          <BookOpen className="w-3.5 h-3.5 mr-1" />
+                          Study
+                        </Button>
+
+                        {/* Focus Pomodoro */}
+                        {!unit.is_completed && (
+                          <Button
+                            size="sm"
+                            onClick={() => onStartFocus(unit)}
+                            className="text-xs h-8 px-3"
+                          >
+                            <Play className="w-3 h-3 fill-current mr-1" />
+                            Focus
+                          </Button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>

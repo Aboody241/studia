@@ -16,7 +16,7 @@ class MaterialUnitController extends Controller
         }
 
         $validated = $request->validate([
-            'material_id' => 'required|exists:materials,id',
+            'material_id' => 'nullable|exists:materials,id',
             'title' => 'required|string|max:255',
             'estimated_minutes' => 'nullable|integer|min:5|max:300',
             'page_start' => 'nullable|integer|min:1',
@@ -24,10 +24,24 @@ class MaterialUnitController extends Controller
             'difficulty' => 'nullable|in:easy,medium,hard',
         ]);
 
+        $materialId = $validated['material_id'] ?? $studyProject->materials()->first()?->id;
+        if (! $materialId) {
+            $defaultMaterial = $studyProject->materials()->create([
+                'user_id' => $request->user()->id,
+                'title' => $studyProject->name . ' Course Notes',
+                'original_file_name' => 'course_notes.pdf',
+                'storage_path' => 'materials/sample_os.pdf',
+                'mime_type' => 'application/pdf',
+                'file_size_bytes' => 0,
+                'processing_status' => 'ready',
+            ]);
+            $materialId = $defaultMaterial->id;
+        }
+
         $maxOrder = $studyProject->units()->max('order_index') ?? 0;
 
         $unit = $studyProject->units()->create([
-            'material_id' => $validated['material_id'],
+            'material_id' => $materialId,
             'title' => $validated['title'],
             'estimated_minutes' => $validated['estimated_minutes'] ?? 25,
             'page_start' => $validated['page_start'] ?? null,

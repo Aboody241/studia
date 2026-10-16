@@ -139,25 +139,25 @@ Prerequisites: Phase 2
 
 ## Implementation checklist
 
-- [ ] Define sections/units with title, material, page range, order, duration estimate and completion state.
+- [x] Define sections/units with title, material, page range, order, duration estimate and completion state.
 
-- [ ] Create a manual unit editor first: add, rename, reorder, split/merge if feasible, delete, estimate duration.
+- [x] Create a manual unit editor first: add, rename, reorder, split/merge if feasible, delete, estimate duration.
 
-- [ ] Add completion toggling with database persistence and validation.
+- [x] Add completion toggling with database persistence and validation.
 
-- [ ] Connect unit selection to PDF page ranges and current course.
+- [x] Connect unit selection to PDF page ranges and current course.
 
-- [ ] Optionally add extraction/AI-generated draft structure behind a review-and-confirm flow.
+- [x] Optionally add extraction/AI-generated draft structure behind a review-and-confirm flow.
 
-- [ ] Mark auto-generated estimates as suggestions and permit user overrides.
+- [x] Mark auto-generated estimates as suggestions and permit user overrides.
 
 ## Acceptance / test gate
 
-- [ ] Units can be saved, reordered and reopened correctly.
+- [x] Units can be saved, reordered and reopened correctly.
 
-- [ ] Selecting a unit opens its associated material/page when metadata exists.
+- [x] Selecting a unit opens its associated material/page when metadata exists.
 
-- [ ] Changes to units update downstream planning inputs without silently corrupting existing plans.
+- [x] Changes to units update downstream planning inputs without silently corrupting existing plans.
 
 # Phase 4 — Study Planning Engine
 

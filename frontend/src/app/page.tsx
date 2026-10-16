@@ -261,17 +261,27 @@ export default function Home() {
     }
   };
 
-  // Add unit
-  const handleAddUnit = async (title: string, estimatedMinutes: number) => {
+  // Unit management handlers
+  const handleAddUnit = async (
+    title: string,
+    estimatedMinutes: number,
+    pageStart?: number,
+    pageEnd?: number,
+    difficulty: 'easy' | 'medium' | 'hard' = 'medium',
+    materialId?: number
+  ) => {
+    const targetMaterialId = materialId || currentMaterial?.id || materials[0]?.id || 1;
     const newUnit: StudyUnit = {
       id: Date.now(),
-      material_id: currentMaterial?.id || 1,
+      material_id: targetMaterialId,
       study_project_id: currentProject?.id || 1,
       title,
       order_index: units.length + 1,
+      page_start: pageStart,
+      page_end: pageEnd,
       estimated_minutes: estimatedMinutes,
       actual_minutes_spent: 0,
-      difficulty: 'medium',
+      difficulty,
       is_completed: false,
     };
 
@@ -281,10 +291,62 @@ export default function Home() {
 
     try {
       if (currentProject) {
-        await api.addUnit(currentProject.id, newUnit);
+        const created = await api.addUnit(currentProject.id, {
+          title,
+          estimated_minutes: estimatedMinutes,
+          page_start: pageStart,
+          page_end: pageEnd,
+          difficulty,
+          material_id: targetMaterialId,
+        });
+        setUnits((prev) => prev.map((u) => (u.id === newUnit.id ? created : u)));
       }
     } catch (err) {
       console.warn('Saved unit locally:', err);
+    }
+  };
+
+  const handleUpdateUnit = async (unitId: number, data: Partial<StudyUnit>) => {
+    const updated = units.map((u) => (u.id === unitId ? { ...u, ...data } : u));
+    setUnits(updated);
+    if (activeUnit?.id === unitId) {
+      setActiveUnit((prev) => (prev ? { ...prev, ...data } : null));
+    }
+    calculateLocalPlan(updated);
+
+    try {
+      await api.updateUnit(unitId, data);
+    } catch (err) {
+      console.warn('Updated unit locally:', err);
+    }
+  };
+
+  const handleDeleteUnit = async (unitId: number) => {
+    const updated = units.filter((u) => u.id !== unitId);
+    setUnits(updated);
+    if (activeUnit?.id === unitId) {
+      setActiveUnit(updated[0] || null);
+    }
+    calculateLocalPlan(updated);
+
+    try {
+      await api.deleteUnit(unitId);
+    } catch (err) {
+      console.warn('Deleted unit locally:', err);
+    }
+  };
+
+  const handleReorderUnits = async (reorderedUnits: StudyUnit[]) => {
+    const updated = reorderedUnits.map((u, idx) => ({ ...u, order_index: idx + 1 }));
+    setUnits(updated);
+    calculateLocalPlan(updated);
+
+    try {
+      if (currentProject) {
+        await api.reorderUnits(currentProject.id, updated.map((u) => u.id));
+      }
+    } catch (err) {
+      console.warn('Reordered units locally:', err);
     }
   };
 
@@ -522,7 +584,12 @@ export default function Home() {
             }}
             onOpenNewProject={() => setIsNewProjectModalOpen(true)}
             onOpenWorkspace={(mat, u) => {
-              if (mat) setCurrentMaterial(mat);
+              if (mat) {
+                setCurrentMaterial(mat);
+              } else if (u?.material_id) {
+                const targetMat = materials.find((m) => m.id === u.material_id);
+                if (targetMat) setCurrentMaterial(targetMat);
+              }
               if (u) setActiveUnit(u);
               setCurrentTab('workspace');
             }}
@@ -533,6 +600,9 @@ export default function Home() {
             }}
             onToggleUnit={handleToggleComplete}
             onAddUnit={handleAddUnit}
+            onUpdateUnit={handleUpdateUnit}
+            onDeleteUnit={handleDeleteUnit}
+            onReorderUnits={handleReorderUnits}
             onUploadMaterial={handleUploadMaterial}
             onDeleteMaterial={handleDeleteMaterial}
           />
@@ -623,6 +693,7 @@ export default function Home() {
                   handleStartSession(25);
                   setCurrentTab('focus');
                 }}
+                onSelectUnit={(u) => setActiveUnit(u)}
                 onAddUnit={handleAddUnit}
                 isOpen={leftPanelOpen}
               />
